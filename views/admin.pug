@@ -1,0 +1,46 @@
+doctype html
+html(lang="en")
+  head
+    meta(charset="utf-8")
+    meta(http-equiv="X-UA-Compatible", content="IE=edge")
+    meta(name="viewport", content="width=device-width, initial-scale=1.0")
+    title Admin Panel
+    link(href="./styles/style.css", rel="stylesheet")
+
+  body.bg-gray-900.text-white
+    div.container.mx-auto.p-8
+        div.text-center
+            h1.text-3xl.uppercase.font-black Admin Panel
+            p.text-xl.mt-4 Signed in as #{user.name}
+        
+        div.flex.flex-col.p-4.gap-4
+            label.text-lg(for="deleteImage") Manual Image Deletion (Name)
+            input.text-black(type="text", name="deleteImage", class="p-2 border rounded shadow-sm")
+            input(type="submit", value="Delete", class="p-2 bg-blue-500 text-white rounded cursor-pointer hover:bg-blue-600", onclick="deleteImageFromInput()")
+
+        div.mt-8.grid.gap-4(id="imageContainer", class="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6")
+            p.text-2xl.col-span-full Loading...
+            div(class="imageWrapper relative" style="aspect-ratio: 1 / 1;")
+                button.bg-red-500.text-white.font-bold.py-2.px-4.rounded.absolute.top-2.right-2(class="delete-button hover:scale-105 transform transition-all") X
+                a
+                    img(class="object-cover w-full h-full")
+
+        div.mt-8.flex.justify-center(id="paginationControls")
+            button#prevButton.bg-blue-500.text-white.font-bold.py-2.px-4.rounded Prev
+            span.mx-2
+            button#nextButton.bg-blue-500.text-white.font-bold.py-2.px-4.rounded Next
+
+    script.
+        const uploadsString = '#{uploads}';
+        const uploadsDataString = '#{uploadsData}';
+        decodedJSONString = decodeURIComponent(uploadsDataString.replace(/&quot;/g, '\"'));
+        const uploads = uploadsString.split(",");
+        const uploadsData = JSON.parse(decodedJSONString);
+
+        uploads.sort((a, b) => {
+            const dateA = new Date(uploadsData[a]);
+            const dateB = new Date(uploadsData[b]);
+            return dateB - dateA;  // For descending order. Use dateA - dateB for ascending.
+        });
+
+    script(src="/js/admin.js")

@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat&family=Roboto&display=swap');
+
+.default {
+    font-family: 'Roboto', sans-serif;
+  }
+  
+.main-font {
+font-family: 'Roboto', sans-serif;
+}
+
+.alt-font { 
+font-family: 'Montserrat', sans-serif;
+}

@@ -1,0 +1,35 @@
+{
+  "name": "img-uploader",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "start": "nodemon main.js",
+    "build-css": "postcss public/styles/tailwind.css -o public/styles/style.css",
+    "watch-css": "chokidar 'public/styles/tailwind.css' -c 'npm run build-css'",
+    "dev": "npm-run-all -p start watch-css"
+  },
+  "author": "Hayden Carpenter",
+  "license": "ISC",
+  "dependencies": {
+    "@babel/types": "^7.14.2",
+    "autoprefixer": "^10.2.5",
+    "body-parser": "^1.20.2",
+    "dotenv": "^9.0.2",
+    "express": "^4.17.1",
+    "express-openid-connect": "^2.4.0",
+    "md5": "^2.3.0",
+    "multer": "^1.4.2",
+    "nanoid": "^3.3.6",
+    "postcss": "^8.4.31",
+    "postcss-cli": "^10.1.0",
+    "pug": "^3.0.2",
+    "tailwindcss": "^3.3.3"
+  },
+  "devDependencies": {
+    "chokidar-cli": "^3.0.0",
+    "concurrently": "^8.2.1",
+    "nodemon": "^3.0.1",
+    "npm-run-all": "^4.1.5"
+  }
+}

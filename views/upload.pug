@@ -1,0 +1,16 @@
+doctype html
+html(lang="en")
+  head
+    meta(charset="utf-8")
+    meta(http-equiv="X-UA-Compatible", content="IE=edge")
+    meta(name="viewport", content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0")
+    title File upload
+    link(href="./styles/style.css", rel="stylesheet")
+    
+  body(style={'background-color': '#0a0a0a'}).text-white.main-font
+    div.bg-grey-lighter.flex.m-16.justify-center
+        <form action="/upload" enctype="multipart/form-data" method="post">
+            <input type="file" name="file-uploaded">
+            <input type="submit" value="Upload" class="bg-transparent hover:bg-gray-200 font-semibold px-2 border border-gray-400 rounded">
+        </form>
+
