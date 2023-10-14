@@ -7,7 +7,7 @@
     "start": "nodemon main.js",
     "build-css": "postcss public/styles/tailwind.css -o public/styles/style.css",
     "watch-css": "chokidar 'public/styles/tailwind.css' -c 'npm run build-css'",
-    "dev": "npm-run-all -p start watch-css"
+    "dev": "npm-run-all -p build-css start watch-css"
   },
   "author": "Hayden Carpenter",
   "license": "ISC",
