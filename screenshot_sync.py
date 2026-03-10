@@ -92,7 +92,12 @@ class ReliableUploader:
 
         if 300 <= resp.status_code < 400 and "Location" in resp.headers:
             link = resp.headers["Location"]
-            if not link.startswith("http"):
+            # Rewrite CDN URL to the main host URL for sharing
+            cdn_url = os.environ.get("B2_CDN_URL", "https://files.hayden.gg")
+            if link.startswith(cdn_url):
+                filename = link[len(cdn_url):]
+                link = UPLOAD_URL.rstrip("/") + filename
+            elif not link.startswith("http"):
                 link = urljoin(UPLOAD_URL, link)
         else:
             logging.error("Upload failed for %s (status %d)", file_path, resp.status_code)
