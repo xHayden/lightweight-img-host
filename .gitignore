@@ -5,3 +5,4 @@ cert/
 uploads/*
 
 public/styles/style.css
+/dist

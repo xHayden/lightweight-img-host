@@ -4,13 +4,43 @@ html(lang="en")
     meta(charset="utf-8")
     meta(http-equiv="X-UA-Compatible", content="IE=edge")
     meta(name="viewport", content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0")
-    title File upload
+    title File Upload
     link(href="./styles/style.css", rel="stylesheet")
-    
-  body(style={'background-color': '#0a0a0a'}).text-white.main-font
-    div.bg-grey-lighter.flex.m-16.justify-center
-        <form action="/upload" enctype="multipart/form-data" method="post">
-            <input type="file" name="file-uploaded">
-            <input type="submit" value="Upload" class="bg-transparent hover:bg-gray-200 font-semibold px-2 border border-gray-400 rounded">
-        </form>
+    style.
+      .drop-zone { border: 2px dashed #444; border-radius: 0.5rem; padding: 3rem 2rem; text-align: center; transition: border-color 0.2s, background 0.2s; cursor: pointer; }
+      .drop-zone.dragover { border-color: #888; background: rgba(255,255,255,0.05); }
+      .drop-zone .file-name { margin-top: 1rem; color: #888; font-size: 0.875rem; }
 
+  body(style={'background-color': '#0a0a0a'}).text-white.main-font
+    div.flex.flex-col.items-center.justify-center.m-16
+      p.text-2xl.uppercase.font-bold.mb-8 Upload a File
+      form#upload-form.w-full(action="/upload" enctype="multipart/form-data" method="post" style="max-width: 500px")
+        div#drop-zone.drop-zone
+          p.text-gray-400 Drag & drop a file here, or click to browse
+          p#file-name.file-name No file selected
+          input#file-input(type="file" name="file-uploaded" style="display:none")
+        div.mt-4(style="display:flex;align-items:center;gap:0.5rem;justify-content:center")
+          label.text-sm.text-gray-400(for="custom-key") Custom name
+          input#custom-key.bg-transparent.text-sm.text-white.px-3.py-1.border.border-gray-600.rounded(type="text" name="custom-key" placeholder="e.g. cat" style="max-width:200px" autocomplete="off")
+          span.text-xs.text-gray-600 (optional, no ext needed)
+        p.text-xs.text-gray-600.mt-2.text-center Max 100MB
+        div.mt-4.text-center
+          input.bg-transparent.font-semibold.px-6.py-2.border.border-gray-400.rounded.cursor-pointer(type="submit" value="Upload" class="hover:bg-gray-800")
+
+    script.
+      const dropZone = document.getElementById('drop-zone');
+      const fileInput = document.getElementById('file-input');
+      const fileName = document.getElementById('file-name');
+
+      dropZone.addEventListener('click', () => fileInput.click());
+      dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        fileInput.files = e.dataTransfer.files;
+        fileName.textContent = e.dataTransfer.files[0]?.name || 'No file selected';
+      });
+      fileInput.addEventListener('change', () => {
+        fileName.textContent = fileInput.files[0]?.name || 'No file selected';
+      });

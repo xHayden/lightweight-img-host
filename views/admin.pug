@@ -3,44 +3,106 @@ html(lang="en")
   head
     meta(charset="utf-8")
     meta(http-equiv="X-UA-Compatible", content="IE=edge")
-    meta(name="viewport", content="width=device-width, initial-scale=1.0")
+    meta(name="viewport", content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0")
     title Admin Panel
     link(href="./styles/style.css", rel="stylesheet")
+    style.
+      .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+      .file-card { background: #1a1a2e; border-radius: 0.5rem; overflow: hidden; position: relative; }
+      .file-card img { width: 100%; height: 150px; object-fit: cover; }
+      .file-card .placeholder { width: 100%; height: 150px; display: flex; align-items: center; justify-content: center; background: #16213e; color: #666; font-size: 0.8rem; text-transform: uppercase; }
+      .file-card .info { padding: 0.5rem; font-size: 0.75rem; }
+      .file-card .info .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .file-card .info .meta { color: #888; margin-top: 0.25rem; }
+      .file-card .delete-btn { position: absolute; top: 0.25rem; right: 0.25rem; background: rgba(220,38,38,0.8); color: white; border: none; border-radius: 0.25rem; padding: 0.15rem 0.4rem; cursor: pointer; font-size: 0.7rem; opacity: 0; transition: opacity 0.2s; }
+      .file-card .rename-btn { position: absolute; top: 0.25rem; right: 1.5rem; background: rgba(59,130,246,0.8); color: white; border: none; border-radius: 0.25rem; padding: 0.15rem 0.4rem; cursor: pointer; font-size: 0.7rem; opacity: 0; transition: opacity 0.2s; }
+      .file-card:hover .delete-btn, .file-card:hover .rename-btn { opacity: 1; }
 
-  body.bg-gray-900.text-white
-    div.container.mx-auto.p-8
-        div.text-center
-            h1.text-3xl.uppercase.font-black Admin Panel
-            p.text-xl.mt-4 Signed in as #{user.name}
-        
-        div.flex.flex-col.p-4.gap-4
-            label.text-lg(for="deleteImage") Manual Image Deletion (Name)
-            input.text-black(type="text", name="deleteImage", class="p-2 border rounded shadow-sm")
-            input(type="submit", value="Delete", class="p-2 bg-blue-500 text-white rounded cursor-pointer hover:bg-blue-600", onclick="deleteImageFromInput()")
+  body(style={'background-color': '#0a0a0a'}).text-white.main-font
+    div.m-8(class="md:m-16")
+      div.flex.items-center.justify-between.mb-8
+        div
+          p.text-3xl.uppercase.font-black(class="sm:text-5xl") Admin Panel
+          p.text-lg.uppercase.text-gray-400 Signed in as #{user.name}
+        a.text-sm.text-gray-400.border.border-gray-600.px-3.py-1.rounded(href="/logout" class="hover:text-white") Logout
 
-        div.mt-8.grid.gap-4(id="imageContainer", class="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6")
-            p.text-2xl.col-span-full Loading...
-            div(class="imageWrapper relative" style="aspect-ratio: 1 / 1;")
-                button.bg-red-500.text-white.font-bold.py-2.px-4.rounded.absolute.top-2.right-2(class="delete-button hover:scale-105 transform transition-all") X
-                a
-                    img(class="object-cover w-full h-full")
+      div.flex.items-center.justify-between.mb-6
+        p.text-xl.uppercase Files (#{uploads.length})
+        a.text-sm.bg-gray-800.px-4.py-2.rounded(href="/upload" class="hover:bg-gray-700") Upload New
 
-        div.mt-8.flex.justify-center(id="paginationControls")
-            button#prevButton.bg-blue-500.text-white.font-bold.py-2.px-4.rounded Prev
-            span.mx-2
-            button#nextButton.bg-blue-500.text-white.font-bold.py-2.px-4.rounded Next
+      if uploads.length === 0
+        p.text-gray-500.mt-8 No files uploaded yet.
+      else
+        div.file-grid
+          each file in uploads
+            div.file-card(data-filename=file.name data-source=file.source data-url=file.url)
+              a(href=file.url target="_blank")
+                - var ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+                - var isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'].indexOf(ext) !== -1;
+                if isImage
+                  img(src=file.url alt=file.name loading="lazy")
+                else
+                  div.placeholder= ext || 'file'
+              button.rename-btn &#9998;
+              button.delete-btn &times;
+              div.info
+                div.name(title=file.name)= file.name
+                div.meta
+                  span= file.size ? (file.size > 1048576 ? (file.size / 1048576).toFixed(1) + ' MB' : (file.size / 1024).toFixed(0) + ' KB') : ''
+                  if file.source === 'local'
+                    span.ml-2.text-yellow-600 local
 
     script.
-        const uploadsString = '#{uploads}';
-        const uploadsDataString = '#{uploadsData}';
-        decodedJSONString = decodeURIComponent(uploadsDataString.replace(/&quot;/g, '\"'));
-        const uploads = uploadsString.split(",");
-        const uploadsData = JSON.parse(decodedJSONString);
+      document.addEventListener('click', async function(e) {
+        const card = e.target.closest('.file-card');
+        if (!card) return;
+        const filename = card.dataset.filename;
+        const source = card.dataset.source;
 
-        uploads.sort((a, b) => {
-            const dateA = new Date(uploadsData[a]);
-            const dateB = new Date(uploadsData[b]);
-            return dateB - dateA;  // For descending order. Use dateA - dateB for ascending.
-        });
+        if (e.target.closest('.rename-btn')) {
+          const ext = filename.substring(filename.lastIndexOf('.'));
+          const base = filename.substring(0, filename.lastIndexOf('.'));
+          const newName = prompt('New name (without extension, ' + ext + ' will be kept):', base);
+          if (!newName || newName.trim() === base) return;
+          try {
+            const res = await fetch('/admin/rename', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ filename, newName: newName.trim(), source }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+              card.dataset.filename = data.newName;
+              card.dataset.url = data.newUrl;
+              const nameEl = card.querySelector('.name');
+              if (nameEl) { nameEl.textContent = data.newName; nameEl.title = data.newName; }
+              const link = card.querySelector('a');
+              if (link) link.href = data.newUrl;
+              const img = card.querySelector('img');
+              if (img) img.alt = data.newName;
+            } else {
+              alert(data.error || 'Rename failed');
+            }
+          } catch (err) {
+            alert('Rename failed: ' + err.message);
+          }
+        }
 
-    script(src="/js/admin.js")
+        if (e.target.closest('.delete-btn')) {
+          if (!confirm('Delete ' + filename + '?')) return;
+          try {
+            const res = await fetch('/admin/delete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ filename, source }),
+            });
+            if (res.ok) {
+              card.remove();
+            } else {
+              alert('Delete failed');
+            }
+          } catch (err) {
+            alert('Delete failed: ' + err.message);
+          }
+        }
+      });
