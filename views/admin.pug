@@ -55,11 +55,21 @@ html(lang="en")
             div.light-pagination
               if page > 1
                 a(href="/admin?page=" + (page - 1)) &laquo; Prev
-              - for (var i = 1; i <= totalPages; i++)
-                if i === page
-                  span.current= i
+              - var showPages = [];
+              - for (var i = 1; i <= totalPages; i++) {
+              -   if (i <= 2 || i > totalPages - 2 || (i >= page - 1 && i <= page + 1)) {
+              -     showPages.push(i);
+              -   } else if (showPages.length > 0 && showPages[showPages.length - 1] !== '...') {
+              -     showPages.push('...');
+              -   }
+              - }
+              each p in showPages
+                if p === '...'
+                  span(style="color: var(--text-faint); padding: 0.3rem 0.25rem; font-size: 0.8rem;") ...
+                else if p === page
+                  span.current= p
                 else
-                  a(href="/admin?page=" + i)= i
+                  a(href="/admin?page=" + p)= p
               if page < totalPages
                 a(href="/admin?page=" + (page + 1)) Next &raquo;
 

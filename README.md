@@ -164,6 +164,28 @@ curl -X POST https://your-host/upload \
   -F "custom-key=my-photo"
 ```
 
+### Screenshot sync (macOS)
+
+Auto-uploads new screenshots and copies the URL to your clipboard.
+
+```bash
+pip3 install watchdog pyperclip requests
+```
+
+Run it:
+
+```bash
+UPLOAD_API_KEY=your-api-key python3 screenshot_sync.py
+```
+
+| Variable | Default | Description |
+|---|---|---|
+| `UPLOAD_API_KEY` | *(required)* | Same key as the server's `UPLOAD_API_KEY` |
+| `SCREENSHOT_DIR` | `~/Documents/Screenshots` | Directory to watch for new files |
+| `UPLOAD_URL` | `https://img.hayden.gg/` | Your image host URL |
+
+Supports `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, and `.pdf`. Uses macOS FSEvents for native file watching with debounce and retry logic. Can be set up as a LaunchAgent for auto-start at login.
+
 ### Migration (local files to B2)
 
 ```bash
