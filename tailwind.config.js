@@ -1,21 +1,18 @@
+/** @type {import('tailwindcss').Config} */
 module.exports = {
-  purge: [
+  content: [
     './views/**/*.pug',
     './public/**/*.js',
   ],
-  darkMode: false, // or 'media' or 'class'
   theme: {
     extend: {
       zIndex: {
-       'hide': '-1',
+        'hide': '-1',
       },
       height: {
-        'w': "100vw"
-      }
-    }
-  },
-  variants: {
-    extend: {},
+        'w': '100vw',
+      },
+    },
   },
   plugins: [],
 }
