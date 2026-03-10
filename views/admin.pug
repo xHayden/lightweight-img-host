@@ -33,7 +33,7 @@ html(lang="en")
       else
         div.light-file-grid.animate-fade-up.stagger-2
           each file, i in uploads
-            div.light-file-card(data-filename=file.name data-source=file.source data-url=file.url)
+            div.light-file-card(data-filename=file.name data-url=file.url)
               a(href=file.url target="_blank" style="text-decoration: none;")
                 - var ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
                 - var isImage = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'].indexOf(ext) !== -1;
@@ -47,8 +47,6 @@ html(lang="en")
                 div.name(title=file.name)= file.name
                 div.meta
                   span= file.size ? (file.size > 1048576 ? (file.size / 1048576).toFixed(1) + ' MB' : (file.size / 1024).toFixed(0) + ' KB') : ''
-                  if file.source === 'local'
-                    span.light-badge(style="margin-left: 0.35rem;") local
 
         //- Pagination
         if totalPages > 1

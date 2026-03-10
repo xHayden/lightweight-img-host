@@ -2,7 +2,6 @@ import express, { Request, Response, NextFunction, RequestHandler } from "expres
 import multer from "multer";
 import path from "path";
 import crypto from "crypto";
-import fs from "fs";
 import {
     S3Client, PutObjectCommand, HeadObjectCommand,
     ListObjectsV2Command, DeleteObjectCommand, CopyObjectCommand,
@@ -17,7 +16,7 @@ export interface CreateAppOptions {
     s3?: S3Client;
     bucket?: string;
     cdnUrl?: string;
-    uploadsDir?: string;
+
     allowedUsers?: string;
     uploadApiKey?: string;
     authMiddleware?: RequestHandler;
@@ -29,7 +28,7 @@ export interface FileRecord {
     url: string;
     size: number | undefined;
     date: Date | undefined;
-    source: "local" | "b2";
+    source: "b2";
 }
 
 interface S3ErrorLike extends Error {
@@ -55,7 +54,6 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
     });
     const B2_BUCKET = options.bucket ?? process.env["B2_BUCKET_NAME"]!;
     const CDN_URL = options.cdnUrl ?? process.env["B2_CDN_URL"]!;
-    const uploadsDir = options.uploadsDir ?? path.join(__dirname, "..", "uploads");
     const allowedUserEmails = (options.allowedUsers ?? process.env["ALLOWED_USERS"] ?? "")
         .split(",").map((e) => e.trim().toLowerCase());
 
@@ -170,19 +168,6 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
         }
 
         try {
-            let localUploads: FileRecord[] = [];
-            try {
-                const localFiles = await fs.promises.readdir(uploadsDir);
-                localUploads = await Promise.all(
-                    localFiles.filter((f) => !f.startsWith(".")).map(async (f): Promise<FileRecord> => {
-                        const stat = await fs.promises.stat(path.join(uploadsDir, f));
-                        return { name: f, url: `/${f}`, size: stat.size, date: stat.mtime, source: "local" };
-                    }),
-                );
-            } catch {
-                // uploads dir doesn't exist — running stateless with B2
-            }
-
             const b2Uploads: FileRecord[] = [];
             try {
                 let continuationToken: string | undefined;
@@ -204,7 +189,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
                 console.error("Failed to list B2 objects:", message);
             }
 
-            const allUploads = [...b2Uploads, ...localUploads].sort((a, b) => {
+            const allUploads = [...b2Uploads].sort((a, b) => {
                 const dateA = a.date ? new Date(a.date).getTime() : 0;
                 const dateB = b.date ? new Date(b.date).getTime() : 0;
                 return dateB - dateA;
@@ -291,7 +276,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
     });
 
     app.post("/admin/delete", adminLimiterMw, requireAdmin, async (req: Request, res: Response) => {
-        const { filename, source } = req.body || {};
+        const { filename } = req.body || {};
 
         if (!filename || !isSafeFilename(filename)) {
             res.status(400).json({ error: "Invalid filename" });
@@ -299,12 +284,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
         }
 
         try {
-            if (source === "b2") {
-                await s3.send(new DeleteObjectCommand({ Bucket: B2_BUCKET, Key: filename }));
-            } else {
-                const filePath = path.join(uploadsDir, filename);
-                await fs.promises.unlink(filePath);
-            }
+            await s3.send(new DeleteObjectCommand({ Bucket: B2_BUCKET, Key: filename }));
             res.json({ success: true });
         } catch (err: unknown) {
             console.error("Delete failed:", err);
@@ -313,7 +293,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
     });
 
     app.post("/admin/rename", adminLimiterMw, requireAdmin, async (req: Request, res: Response) => {
-        const { filename, newName, source } = req.body || {};
+        const { filename, newName } = req.body || {};
 
         if (!filename || !isSafeFilename(filename)) {
             res.status(400).json({ error: "Invalid current filename" });
@@ -331,37 +311,27 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
         const newKey = trimmed + ext;
 
         if (newKey === filename) {
-            res.json({ success: true, newName: newKey, newUrl: source === "b2" ? `${CDN_URL}/${newKey}` : `/${newKey}` });
+            res.json({ success: true, newName: newKey, newUrl: `${CDN_URL}/${newKey}` });
             return;
         }
 
         try {
-            if (source === "b2") {
-                try {
-                    await s3.send(new HeadObjectCommand({ Bucket: B2_BUCKET, Key: newKey }));
-                    res.status(409).json({ error: `"${newKey}" is already taken.` });
-                    return;
-                } catch (headErr: unknown) {
-                    if (!isS3NotFound(headErr)) throw headErr;
-                }
-
-                await s3.send(new CopyObjectCommand({
-                    Bucket: B2_BUCKET,
-                    CopySource: `${B2_BUCKET}/${filename}`,
-                    Key: newKey,
-                }));
-                await s3.send(new DeleteObjectCommand({ Bucket: B2_BUCKET, Key: filename }));
-
-                res.json({ success: true, newName: newKey, newUrl: `${CDN_URL}/${newKey}` });
-            } else {
-                const newPath = path.join(uploadsDir, newKey);
-                if (fs.existsSync(newPath)) {
-                    res.status(409).json({ error: `"${newKey}" already exists locally.` });
-                    return;
-                }
-                await fs.promises.rename(path.join(uploadsDir, filename), newPath);
-                res.json({ success: true, newName: newKey, newUrl: `/${newKey}` });
+            try {
+                await s3.send(new HeadObjectCommand({ Bucket: B2_BUCKET, Key: newKey }));
+                res.status(409).json({ error: `"${newKey}" is already taken.` });
+                return;
+            } catch (headErr: unknown) {
+                if (!isS3NotFound(headErr)) throw headErr;
             }
+
+            await s3.send(new CopyObjectCommand({
+                Bucket: B2_BUCKET,
+                CopySource: `${B2_BUCKET}/${filename}`,
+                Key: newKey,
+            }));
+            await s3.send(new DeleteObjectCommand({ Bucket: B2_BUCKET, Key: filename }));
+
+            res.json({ success: true, newName: newKey, newUrl: `${CDN_URL}/${newKey}` });
         } catch (err: unknown) {
             console.error("Rename failed:", err);
             res.status(500).json({ error: "Rename failed" });
