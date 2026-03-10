@@ -1,8 +1,7 @@
 document.addEventListener('click', async function(e) {
-  const card = e.target.closest('.file-card');
+  const card = e.target.closest('.light-file-card');
   if (!card) return;
   const filename = card.dataset.filename;
-  const source = card.dataset.source;
 
   if (e.target.closest('.rename-btn')) {
     const ext = filename.substring(filename.lastIndexOf('.'));
@@ -13,7 +12,7 @@ document.addEventListener('click', async function(e) {
       const res = await fetch('/admin/rename', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename, newName: newName.trim(), source }),
+        body: JSON.stringify({ filename, newName: newName.trim() }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -39,7 +38,7 @@ document.addEventListener('click', async function(e) {
       const res = await fetch('/admin/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename, source }),
+        body: JSON.stringify({ filename }),
       });
       if (res.ok) {
         card.remove();
