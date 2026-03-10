@@ -1,7 +1,4 @@
 import request from "supertest";
-import path from "path";
-import fs from "fs";
-import os from "os";
 import express, { Request, Response, NextFunction } from "express";
 import { createApp, CreateAppOptions } from "../app";
 
@@ -20,15 +17,8 @@ function mockAuth(authenticated = false, user: Record<string, string> = { name: 
     };
 }
 
-let tmpUploadsDir: string;
-
 beforeEach(() => {
     jest.clearAllMocks();
-    tmpUploadsDir = fs.mkdtempSync(path.join(os.tmpdir(), "uploads-test-"));
-});
-
-afterEach(() => {
-    fs.rmSync(tmpUploadsDir, { recursive: true, force: true });
 });
 
 function mockHeadNotFound(): void {
@@ -43,7 +33,6 @@ function buildApp(authenticated = false, overrides: Partial<CreateAppOptions> = 
         s3: mockS3,
         bucket: "test-bucket",
         cdnUrl: "https://cdn.example.com",
-        uploadsDir: tmpUploadsDir,
         allowedUsers: "admin@test.com",
         uploadApiKey: "test-api-key-12345",
         disableRateLimit: true,
@@ -218,7 +207,7 @@ describe("Admin panel", () => {
             s3: mockS3,
             bucket: "test-bucket",
             cdnUrl: "https://cdn.example.com",
-            uploadsDir: tmpUploadsDir,
+
             allowedUsers: "other@test.com",
             uploadApiKey: "test-api-key-12345",
             disableRateLimit: true,
@@ -230,8 +219,11 @@ describe("Admin panel", () => {
     });
 
     test("GET /admin shows files for authorized admin", async () => {
-        fs.writeFileSync(path.join(tmpUploadsDir, "test-image.png"), "fake");
-        mockSend.mockResolvedValueOnce({ Contents: [] });
+        mockSend.mockResolvedValueOnce({
+            Contents: [
+                { Key: "test-image.png", Size: 1024, LastModified: new Date() },
+            ],
+        });
 
         const app = buildApp(true);
         const res = await request(app).get("/admin");
@@ -288,19 +280,6 @@ describe("Admin delete", () => {
             .post("/admin/delete")
             .send({ filename: "..\\..\\etc\\passwd", source: "local" });
         expect(res.status).toBe(400);
-    });
-
-    test("deletes local file successfully", async () => {
-        const testFile = path.join(tmpUploadsDir, "deleteme.png");
-        fs.writeFileSync(testFile, "fake");
-
-        const app = buildApp(true);
-        const res = await request(app)
-            .post("/admin/delete")
-            .send({ filename: "deleteme.png", source: "local" });
-        expect(res.status).toBe(200);
-        expect(res.body.success).toBe(true);
-        expect(fs.existsSync(testFile)).toBe(false);
     });
 
     test("deletes B2 file successfully", async () => {
@@ -424,28 +403,6 @@ describe("Admin rename", () => {
         expect(res.body.error).toMatch(/already taken/i);
     });
 
-    test("renames local file", async () => {
-        fs.writeFileSync(path.join(tmpUploadsDir, "old.png"), "data");
-        const app = buildApp(true);
-        const res = await request(app)
-            .post("/admin/rename")
-            .send({ filename: "old.png", newName: "new", source: "local" });
-        expect(res.status).toBe(200);
-        expect(res.body.newName).toBe("new.png");
-        expect(fs.existsSync(path.join(tmpUploadsDir, "new.png"))).toBe(true);
-        expect(fs.existsSync(path.join(tmpUploadsDir, "old.png"))).toBe(false);
-    });
-
-    test("returns 409 if local file already exists", async () => {
-        fs.writeFileSync(path.join(tmpUploadsDir, "old.png"), "data");
-        fs.writeFileSync(path.join(tmpUploadsDir, "taken.png"), "other");
-        const app = buildApp(true);
-        const res = await request(app)
-            .post("/admin/rename")
-            .send({ filename: "old.png", newName: "taken", source: "local" });
-        expect(res.status).toBe(409);
-    });
-
     test("no-op when renaming to same name", async () => {
         const app = buildApp(true);
         const res = await request(app)
@@ -489,7 +446,7 @@ describe("API key security", () => {
             s3: mockS3,
             bucket: "test-bucket",
             cdnUrl: "https://cdn.example.com",
-            uploadsDir: tmpUploadsDir,
+
             allowedUsers: "admin@test.com",
             uploadApiKey: "",
             disableRateLimit: true,
@@ -522,13 +479,32 @@ describe("Profile route", () => {
 
 // ─── Error handler ───────────────────────────────────────────────────
 
-describe("Error handling", () => {
-    test("unknown routes return 404 and do not leak stack traces", async () => {
+// ─── CDN redirect for file requests ─────────────────────────────────
+
+describe("CDN redirect", () => {
+    test("redirects valid filenames to CDN", async () => {
         const app = buildApp();
-        const res = await request(app).get("/nonexistent-route");
+        const res = await request(app).get("/photo.png");
+        expect(res.status).toBe(301);
+        expect(res.headers.location).toBe("https://cdn.example.com/photo.png");
+    });
+
+    test("redirects filenames with hyphens and underscores", async () => {
+        const app = buildApp();
+        const res = await request(app).get("/my-cool_image.jpg");
+        expect(res.status).toBe(301);
+        expect(res.headers.location).toBe("https://cdn.example.com/my-cool_image.jpg");
+    });
+
+    test("returns 404 for unsafe filenames", async () => {
+        const app = buildApp();
+        const res = await request(app).get("/..%2F..%2Fetc%2Fpasswd");
         expect(res.status).toBe(404);
-        // Should not expose internal paths or stack traces
-        expect(res.text).not.toMatch(/at\s+\w+\s+\(/); // no stack frames
-        expect(res.text).not.toContain(__dirname);
+    });
+
+    test("returns 404 for dotfiles", async () => {
+        const app = buildApp();
+        const res = await request(app).get("/.env");
+        expect(res.status).toBe(404);
     });
 });

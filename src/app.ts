@@ -339,6 +339,16 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
         }
     });
 
+    // Redirect file requests to CDN
+    app.get("/:filename", (req: Request, res: Response) => {
+        const filename = req.params["filename"];
+        if (filename && isSafeFilename(filename)) {
+            res.redirect(301, `${CDN_URL}/${filename}`);
+        } else {
+            res.status(404).json({ error: "Not found" });
+        }
+    });
+
     app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
         console.error("Unhandled error:", err);
         res.status(500).json({ error: "Internal server error" });
