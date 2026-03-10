@@ -79,7 +79,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
         contentSecurityPolicy: {
             directives: {
                 defaultSrc: ["'self'"],
-                scriptSrc: ["'self'", "'unsafe-inline'"],
+                scriptSrc: ["'self'"],
                 styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
                 fontSrc: ["'self'", "https://fonts.gstatic.com"],
                 imgSrc: ["'self'", CDN_URL, "data:"],
@@ -103,7 +103,10 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
         }));
     }
 
-    app.use(express.static(path.join(__dirname, "..", "public")));
+    app.use(express.static(path.join(__dirname, "..", "public"), {
+        maxAge: "7d",
+        immutable: false,
+    }));
     app.set("views", path.join(__dirname, "..", "views"));
     app.set("view engine", "pug");
     app.use(express.json());
@@ -157,6 +160,8 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
         res.render("upload");
     });
 
+    const ADMIN_PAGE_SIZE = 50;
+
     app.get("/admin", adminLimiterMw, async (req: Request, res: Response) => {
         const user = req.oidc?.user;
         if (!req.oidc?.isAuthenticated() || !user || !allowedUserEmails.includes(String(user["email"]).toLowerCase())) {
@@ -165,13 +170,18 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
         }
 
         try {
-            const localFiles = await fs.promises.readdir(uploadsDir);
-            const localUploads: FileRecord[] = await Promise.all(
-                localFiles.filter((f) => !f.startsWith(".")).map(async (f): Promise<FileRecord> => {
-                    const stat = await fs.promises.stat(path.join(uploadsDir, f));
-                    return { name: f, url: `/${f}`, size: stat.size, date: stat.mtime, source: "local" };
-                }),
-            );
+            let localUploads: FileRecord[] = [];
+            try {
+                const localFiles = await fs.promises.readdir(uploadsDir);
+                localUploads = await Promise.all(
+                    localFiles.filter((f) => !f.startsWith(".")).map(async (f): Promise<FileRecord> => {
+                        const stat = await fs.promises.stat(path.join(uploadsDir, f));
+                        return { name: f, url: `/${f}`, size: stat.size, date: stat.mtime, source: "local" };
+                    }),
+                );
+            } catch {
+                // uploads dir doesn't exist — running stateless with B2
+            }
 
             const b2Uploads: FileRecord[] = [];
             try {
@@ -199,7 +209,15 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
                 const dateB = b.date ? new Date(b.date).getTime() : 0;
                 return dateB - dateA;
             });
-            res.render("admin", { user: req.oidc.user, uploads: allUploads });
+
+            const page = Math.max(1, parseInt(req.query["page"] as string) || 1);
+            const totalFiles = allUploads.length;
+            const totalPages = Math.max(1, Math.ceil(totalFiles / ADMIN_PAGE_SIZE));
+            const clampedPage = Math.min(page, totalPages);
+            const start = (clampedPage - 1) * ADMIN_PAGE_SIZE;
+            const paginatedUploads = allUploads.slice(start, start + ADMIN_PAGE_SIZE);
+
+            res.render("admin", { user: req.oidc.user, uploads: paginatedUploads, page: clampedPage, totalPages, totalFiles });
         } catch (err: unknown) {
             console.error("Admin error:", err);
             res.status(500).send("Error loading admin panel");

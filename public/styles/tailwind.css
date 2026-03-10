@@ -3,15 +3,294 @@
 @tailwind utilities;
 
 @import url('https://fonts.googleapis.com/css2?family=Montserrat&family=Roboto&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&family=Instrument+Serif:ital@0;1&display=swap');
 
 .default {
-    font-family: 'Roboto', sans-serif;
-  }
-  
-.main-font {
-font-family: 'Roboto', sans-serif;
+  font-family: 'Roboto', sans-serif;
 }
 
-.alt-font { 
-font-family: 'Montserrat', sans-serif;
+.main-font {
+  font-family: 'Roboto', sans-serif;
+}
+
+.alt-font {
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Light theme base */
+:root {
+  --bg: #faf9f7;
+  --bg-card: #ffffff;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-hover: rgba(0, 0, 0, 0.15);
+  --text: #1a1a1a;
+  --text-muted: #888888;
+  --text-faint: #b0b0b0;
+  --accent: #1a1a1a;
+  --danger: #c44;
+  --blue: #4a7cca;
+}
+
+.light-theme {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.light-theme * {
+  box-sizing: border-box;
+}
+
+/* Subtle entrance animation */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease both;
+}
+
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+
+/* Display font */
+.display-font {
+  font-family: 'Instrument Serif', serif;
+}
+
+/* Light input */
+.light-input {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.light-input:focus {
+  border-color: var(--border-hover);
+}
+
+.light-input::placeholder {
+  color: var(--text-faint);
+}
+
+/* Light button */
+.light-btn {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  font-size: 0.875rem;
+  letter-spacing: 0.01em;
+  padding: 0.5rem 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.light-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
+}
+
+.light-btn-solid {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  font-size: 0.875rem;
+  padding: 0.5rem 1.25rem;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.light-btn-solid:hover {
+  background: #333;
+}
+
+/* Drop zone - light */
+.light-drop-zone {
+  border: 1.5px dashed var(--border);
+  border-radius: 10px;
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  background: var(--bg-card);
+}
+
+.light-drop-zone:hover,
+.light-drop-zone.dragover {
+  border-color: var(--border-hover);
+  background: rgba(0, 0, 0, 0.01);
+}
+
+.light-drop-zone .file-name {
+  margin-top: 0.75rem;
+  color: var(--text-faint);
+  font-size: 0.8rem;
+}
+
+/* File grid - light */
+.light-file-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 1rem;
+}
+
+.light-file-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.light-file-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  transform: translateY(-2px);
+}
+
+.light-file-card img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  display: block;
+}
+
+.light-file-card .placeholder {
+  width: 100%;
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  color: var(--text-faint);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 500;
+}
+
+.light-file-card .info {
+  padding: 0.6rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+.light-file-card .info .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.light-file-card .info .meta {
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+  font-size: 0.7rem;
+}
+
+.light-file-card .action-btn {
+  position: absolute;
+  top: 0.4rem;
+  border: none;
+  border-radius: 5px;
+  padding: 0.2rem 0.45rem;
+  cursor: pointer;
+  font-size: 0.7rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  backdrop-filter: blur(8px);
+}
+
+.light-file-card:hover .action-btn {
+  opacity: 1;
+}
+
+.light-file-card .delete-btn {
+  right: 0.4rem;
+  background: rgba(204, 68, 68, 0.85);
+  color: white;
+}
+
+.light-file-card .rename-btn {
+  right: 1.8rem;
+  background: rgba(74, 124, 202, 0.85);
+  color: white;
+}
+
+/* Pagination - light */
+.light-pagination {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.light-pagination a,
+.light-pagination span {
+  padding: 0.3rem 0.7rem;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.light-pagination a {
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.light-pagination a:hover {
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+.light-pagination .current {
+  background: var(--accent);
+  color: white;
+  border: 1px solid var(--accent);
+}
+
+/* Divider */
+.light-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0;
+}
+
+/* Badge */
+.light-badge {
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 500;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-muted);
 }

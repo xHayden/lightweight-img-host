@@ -17,17 +17,13 @@
   "license": "ISC",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1005.0",
-    "autoprefixer": "^10.2.5",
     "dotenv": "^9.0.2",
     "express": "^4.17.1",
     "express-openid-connect": "^2.4.0",
     "express-rate-limit": "^8.3.1",
     "helmet": "^8.1.0",
     "multer": "^1.4.2",
-    "postcss": "^8.2.13",
-    "postcss-cli": "^8.3.1",
-    "pug": "^3.0.2",
-    "tailwindcss": "^2.1.2"
+    "pug": "^3.0.2"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
@@ -35,12 +31,16 @@
     "@types/multer": "^1.4.11",
     "@types/node": "^20.0.0",
     "@types/supertest": "^6.0.3",
+    "autoprefixer": "^10.2.5",
     "chokidar-cli": "^3.0.0",
     "concurrently": "^8.2.1",
     "jest": "^30.3.0",
     "nodemon": "^3.0.1",
     "npm-run-all": "^4.1.5",
+    "postcss": "^8.2.13",
+    "postcss-cli": "^8.3.1",
     "supertest": "^7.2.2",
+    "tailwindcss": "^2.1.2",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.0"
