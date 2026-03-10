@@ -77,8 +77,9 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
         contentSecurityPolicy: {
             directives: {
                 defaultSrc: ["'self'"],
-                scriptSrc: ["'self'"],
+                scriptSrc: ["'self'", "https://static.cloudflareinsights.com"],
                 styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+                connectSrc: ["'self'", "https://cloudflareinsights.com"],
                 fontSrc: ["'self'", "https://fonts.gstatic.com"],
                 imgSrc: ["'self'", CDN_URL, "data:"],
                 objectSrc: ["'none'"],
