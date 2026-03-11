@@ -137,6 +137,22 @@ Go to **Rules > Cache Rules > Create rule**:
 - **Edge TTL**: 7 days
 - **Browser TTL**: 1 year
 
+#### 5. Cloudflare Worker for direct image embedding on the upload domain
+
+The upload domain returns a 301 redirect to the CDN domain for file requests. Most document editors and chat apps don't follow redirects when embedding images, so embedded links appear broken.
+
+A Cloudflare Worker fixes this by routing file-slug paths directly to the CDN at the edge (zero VPS bandwidth), while passing app routes (`/upload`, `/admin`, etc.) through to the VPS origin. See [`cloudflare-worker.js`](cloudflare-worker.js).
+
+To deploy:
+
+1. Go to **Workers & Pages > Create > Create Worker**.
+2. Paste the contents of `cloudflare-worker.js` and deploy.
+3. Go to your domain's **Workers Routes** and add a route:
+   - **Route**: `img.example.com/*`
+   - **Worker**: select the worker you just created
+
+Responses are cached at the edge via `cacheEverything`, so the worker only fetches from the CDN on cache misses.
+
 #### Verify
 
 ```bash
