@@ -145,9 +145,23 @@ A Cloudflare Worker fixes this by routing file-slug paths directly to the CDN at
 
 To deploy:
 
-1. Go to **Workers & Pages > Create > Create Worker**.
-2. Paste the contents of `cloudflare-worker.js` and deploy.
-3. Go to your domain's **Workers Routes** and add a route:
+1. Install the Wrangler CLI: `npm install -g wrangler`
+2. Log in: `wrangler login`
+3. Create a `wrangler.toml` in the project root (it's in `.gitignore`):
+   ```toml
+   name = "img-host-proxy"
+   main = "cloudflare-worker.js"
+   compatibility_date = "2024-01-01"
+
+   account_id = "YOUR_ACCOUNT_ID"
+
+   [routes]
+   pattern = "img.example.com/*"
+   zone_name = "example.com"
+   ```
+4. Deploy: `wrangler deploy`
+
+Alternatively, add a route manually in the dashboard under **Workers Routes**:
    - **Route**: `img.example.com/*`
    - **Worker**: select the worker you just created
 

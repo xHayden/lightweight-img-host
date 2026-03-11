@@ -6,3 +6,4 @@ uploads/*
 
 public/styles/style.css
 /dist
+wrangler.toml

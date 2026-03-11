@@ -38,6 +38,7 @@ export default {
     // Return CDN response with CORS header
     const response = new Response(cdnResponse.body, cdnResponse);
     response.headers.set("Access-Control-Allow-Origin", "*");
+    response.headers.set("X-Served-By", "img-worker");
     return response;
   },
 };

@@ -343,7 +343,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
     app.get("/:filename", (req: Request, res: Response) => {
         const filename = req.params["filename"];
         if (filename && isSafeFilename(filename)) {
-            res.redirect(301, `${CDN_URL}/${filename}`);
+            res.redirect(302, `${CDN_URL}/${filename}`);
         } else {
             res.status(404).json({ error: "Not found" });
         }
