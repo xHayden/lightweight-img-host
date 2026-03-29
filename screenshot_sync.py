@@ -137,8 +137,10 @@ class ScreenshotHandler(FileSystemEventHandler):
         """Return True if *path* has been seen very recently."""
         now = time.time()
         last = self._recent.get(path, 0)
+        if (now - last) < DEBOUNCE_SECONDS:
+            return True
         self._recent[path] = now
-        return (now - last) < DEBOUNCE_SECONDS
+        return False
 
     def _wait_until_stable(self, path: Path) -> None:
         size1 = path.stat().st_size
