@@ -9,8 +9,7 @@ so it automatically restarts at login and after crashes.
 
 • Uses FSEventsObserver – the native macOS file‑watcher backend – for
   greater reliability.
-• Debounces duplicate create/modify events so every screenshot is
-  uploaded exactly once.
+• Deduplicates FSEvents by tracking (path, mtime) of uploaded files.
 • Waits until the file size is stable before opening it, avoiding
   partially‑written uploads.
 • One persistent requests.Session with retry/back‑off logic handles
@@ -46,7 +45,6 @@ UPLOAD_ENDPOINT = UPLOAD_URL.rstrip("/") + "/upload"
 API_KEY = os.environ.get("UPLOAD_API_KEY", "")
 ALLOWED_EXTENSIONS: Set[str] = {".gif", ".png", ".jpg", ".jpeg", ".pdf", ".webp"}
 
-DEBOUNCE_SECONDS = 0.3          # merge events arriving within this window
 MAX_RETRIES = 3                 # network retry attempts
 RETRY_BACKOFF = 1               # seconds, exponential factor handled by urllib3
 FILE_STABLE_WAIT = 0.2          # time to wait before checking file size again
@@ -121,7 +119,7 @@ class ScreenshotHandler(FileSystemEventHandler):
 
     def __init__(self, uploader: ReliableUploader) -> None:
         self.uploader = uploader
-        self._recent: Dict[Path, float] = {}
+        self._processed: Dict[Path, float] = {}
         self._stop_event = Event()
 
     def stop(self) -> None:
@@ -132,15 +130,6 @@ class ScreenshotHandler(FileSystemEventHandler):
             path.suffix.lower() in ALLOWED_EXTENSIONS
             and not path.name.startswith(".")
         )
-
-    def _debounced(self, path: Path) -> bool:
-        """Return True if *path* has been seen very recently."""
-        now = time.time()
-        last = self._recent.get(path, 0)
-        if (now - last) < DEBOUNCE_SECONDS:
-            return True
-        self._recent[path] = now
-        return False
 
     def _wait_until_stable(self, path: Path) -> None:
         size1 = path.stat().st_size
@@ -162,12 +151,14 @@ class ScreenshotHandler(FileSystemEventHandler):
         path = Path(raw_path)
         if not self._should_handle(path):
             return
-        if self._debounced(path):
-            return
 
         try:
             self._wait_until_stable(path)
+            mtime = path.stat().st_mtime
+            if self._processed.get(path) == mtime:
+                return
             self.uploader.upload(path)
+            self._processed[path] = mtime
         except Exception as exc:  # noqa: BLE001
             logging.exception("Error processing %s: %s", path, exc)
 
