@@ -7,26 +7,23 @@ the image host.  When the upload succeeds the resulting
 public URL is copied to the clipboard.  Designed to run as a LaunchAgent
 so it automatically restarts at login and after crashes.
 
-• Uses FSEventsObserver – the native macOS file‑watcher backend – for
-  greater reliability.
-• Deduplicates FSEvents by tracking (path, mtime) of uploaded files.
-• Waits until the file size is stable before opening it, avoiding
-  partially‑written uploads.
-• One persistent requests.Session with retry/back‑off logic handles
+* Polls the screenshot directory every 0.5 s — no FSEvents dependency,
+  no macOS throttling delays.
+* Deduplicates by tracking (path, mtime) of uploaded files.
+* Waits until the file size is stable before opening it, avoiding
+  partially-written uploads.
+* One persistent requests.Session with retry/back-off logic handles
   flaky networks cleanly.
-• No thread‑spawning restarts; the observer lives for the process
-  lifetime and shuts down gracefully on SIGINT.
-• Pathlib, typing, detailed structured logging.
-• Sends x-api-key header for authenticated uploads to B2-backed host.
+* Sends x-api-key header for authenticated uploads to B2-backed host.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import signal
 import time
 from pathlib import Path
-from threading import Event
 from typing import Dict, Set
 from urllib.parse import urljoin
 
@@ -34,8 +31,6 @@ import pyperclip
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from watchdog.events import FileCreatedEvent, FileModifiedEvent, FileSystemEventHandler
-from watchdog.observers.fsevents import FSEventsObserver
 
 # --------------------------- Configuration --------------------------- #
 
@@ -45,6 +40,7 @@ UPLOAD_ENDPOINT = UPLOAD_URL.rstrip("/") + "/upload"
 API_KEY = os.environ.get("UPLOAD_API_KEY", "")
 ALLOWED_EXTENSIONS: Set[str] = {".gif", ".png", ".jpg", ".jpeg", ".pdf", ".webp"}
 
+POLL_INTERVAL = 0.5             # seconds between directory scans
 MAX_RETRIES = 3                 # network retry attempts
 RETRY_BACKOFF = 1               # seconds, exponential factor handled by urllib3
 FILE_STABLE_WAIT = 0.2          # time to wait before checking file size again
@@ -59,8 +55,9 @@ logging.basicConfig(
 
 # ------------------------------ Uploader ----------------------------- #
 
+
 class ReliableUploader:
-    """Upload files with automatic retry/back‑off."""
+    """Upload files with automatic retry/back-off."""
 
     def __init__(self, endpoint: str) -> None:
         self.endpoint = endpoint
@@ -90,7 +87,6 @@ class ReliableUploader:
 
         if 300 <= resp.status_code < 400 and "Location" in resp.headers:
             link = resp.headers["Location"]
-            # Rewrite CDN URL to the main host URL for sharing
             cdn_url = os.environ.get("B2_CDN_URL", "https://files.hayden.gg")
             if link.startswith(cdn_url):
                 filename = link[len(cdn_url):]
@@ -101,7 +97,7 @@ class ReliableUploader:
             logging.error("Upload failed for %s (status %d)", file_path, resp.status_code)
             link = self._extract_link_fallback(resp.text)
 
-        logging.info("Uploaded %s → %s", file_path, link)
+        logging.info("Uploaded %s -> %s", file_path, link)
         pyperclip.copy(link)
         return link
 
@@ -112,82 +108,78 @@ class ReliableUploader:
         match = re.search(r"https?://\S+", html)
         return match.group(0) if match else "ERROR_NO_LINK_FOUND"
 
-# ----------------------------- Watcher ------------------------------- #
 
-class ScreenshotHandler(FileSystemEventHandler):
-    """Handle new and modified files in *SCREENSHOT_DIR*."""
+# ------------------------------ Helpers ------------------------------ #
 
-    def __init__(self, uploader: ReliableUploader) -> None:
-        self.uploader = uploader
-        self._processed: Dict[Path, float] = {}
-        self._stop_event = Event()
 
-    def stop(self) -> None:
-        self._stop_event.set()
-
-    def _should_handle(self, path: Path) -> bool:
-        return (
-            path.suffix.lower() in ALLOWED_EXTENSIONS
-            and not path.name.startswith(".")
-        )
-
-    def _wait_until_stable(self, path: Path) -> None:
-        size1 = path.stat().st_size
-        time.sleep(FILE_STABLE_WAIT)
-        while True:
-            size2 = path.stat().st_size
-            if size2 == size1:
-                return
-            size1 = size2
-            time.sleep(FILE_STABLE_WAIT)
-
-    def on_created(self, event):
-        if isinstance(event, (FileCreatedEvent, FileModifiedEvent)):
-            self._handle(event.src_path)
-
-    on_modified = on_created
-
-    def _handle(self, raw_path: str):
-        path = Path(raw_path)
-        if not self._should_handle(path):
+def wait_until_stable(path: Path) -> None:
+    """Block until *path*'s size stops changing."""
+    size = path.stat().st_size
+    time.sleep(FILE_STABLE_WAIT)
+    while True:
+        new_size = path.stat().st_size
+        if new_size == size:
             return
-
-        try:
-            self._wait_until_stable(path)
-            mtime = path.stat().st_mtime
-            if self._processed.get(path) == mtime:
-                return
-            self.uploader.upload(path)
-            self._processed[path] = mtime
-        except Exception as exc:  # noqa: BLE001
-            logging.exception("Error processing %s: %s", path, exc)
-
-# ------------------------------ main -------------------------------- #
+        size = new_size
+        time.sleep(FILE_STABLE_WAIT)
 
 
-def main() -> None:  # pragma: no cover
+# ------------------------------ Main --------------------------------- #
+
+
+running = True
+
+
+def _shutdown(signum, frame):
+    global running
+    running = False
+
+
+def main() -> None:
     SCREENSHOT_DIR.mkdir(parents=True, exist_ok=True)
 
     if not API_KEY:
         logging.warning("No UPLOAD_API_KEY set. Uploads will fail if server requires auth.")
 
+    signal.signal(signal.SIGTERM, _shutdown)
+    signal.signal(signal.SIGINT, _shutdown)
+
     uploader = ReliableUploader(UPLOAD_ENDPOINT)
-    handler = ScreenshotHandler(uploader)
-    observer = FSEventsObserver()
-    observer.schedule(handler, str(SCREENSHOT_DIR), recursive=False)
 
-    observer.start()
-    logging.info("Screenshot sync started for %s", SCREENSHOT_DIR)
+    # Seed with existing files so we only upload new ones after startup.
+    processed: Dict[Path, float] = {}
+    for entry in SCREENSHOT_DIR.iterdir():
+        if entry.is_file() and entry.suffix.lower() in ALLOWED_EXTENSIONS:
+            processed[entry] = entry.stat().st_mtime
 
-    try:
-        while not handler._stop_event.is_set():
-            time.sleep(1)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        observer.stop()
-        observer.join()
-        logging.info("Screenshot sync stopped.")
+    logging.info("Screenshot sync started for %s (%d existing files)", SCREENSHOT_DIR, len(processed))
+
+    while running:
+        for entry in SCREENSHOT_DIR.iterdir():
+            if not entry.is_file():
+                continue
+            if entry.suffix.lower() not in ALLOWED_EXTENSIONS:
+                continue
+            if entry.name.startswith("."):
+                continue
+
+            mtime = entry.stat().st_mtime
+            if processed.get(entry) == mtime:
+                continue
+
+            try:
+                wait_until_stable(entry)
+                mtime = entry.stat().st_mtime
+                if processed.get(entry) == mtime:
+                    continue
+                uploader.upload(entry)
+                processed[entry] = mtime
+            except Exception as exc:
+                logging.exception("Error processing %s: %s", entry, exc)
+
+        time.sleep(POLL_INTERVAL)
+
+    logging.info("Screenshot sync stopped.")
 
 
 if __name__ == "__main__":
